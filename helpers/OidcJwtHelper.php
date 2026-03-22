@@ -4,10 +4,12 @@ namespace Grocy\Helpers;
 
 /**
  * Minimal OIDC JWT helper using PHP's built-in OpenSSL extension.
- * Supports RS256, RS384, RS512, ES256 algorithms.
+ * Supports RS256, RS384, RS512, ES256, ES384, ES512 algorithms.
  */
 class OidcJwtHelper
 {
+	/** Allowable clock skew in seconds when validating the nbf (not before) claim. */
+	const NBF_CLOCK_SKEW_TOLERANCE = 60;
 	/**
 	 * Decode and validate a JWT id_token.
 	 *
@@ -64,7 +66,7 @@ class OidcJwtHelper
 			throw new \Exception('JWT is expired');
 		}
 
-		if (isset($payload->nbf) && $payload->nbf > time() + 60)
+		if (isset($payload->nbf) && $payload->nbf > time() + self::NBF_CLOCK_SKEW_TOLERANCE)
 		{
 			throw new \Exception('JWT not yet valid');
 		}

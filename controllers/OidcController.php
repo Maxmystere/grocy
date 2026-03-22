@@ -141,7 +141,12 @@ class OidcController extends BaseController
 			return $this->RenderOidcError($response, 'Could not determine username from OIDC claims');
 		}
 
-		// Sanitize username: only allow safe characters
+		// Sanitize username: only allow safe characters for Grocy usernames.
+		// Note: characters that are not alphanumeric, '.', '_', '@', or '-' are replaced
+		// with underscores, which could theoretically produce the same sanitized name
+		// for two different raw usernames (e.g. "user name" and "user_name"). To handle
+		// this, we also match against the OIDC 'sub' claim so that each distinct OIDC
+		// identity always maps to the same Grocy user regardless of username changes.
 		$username = preg_replace('/[^a-zA-Z0-9._@\-]/', '_', $username);
 		if (empty($username))
 		{
