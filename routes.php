@@ -18,6 +18,10 @@ $app->group('', function (RouteCollectorProxy $group)
 	$group->post('/login', '\Grocy\Controllers\LoginController:ProcessLogin')->setName('login');
 	$group->get('/logout', '\Grocy\Controllers\LoginController:Logout');
 
+	// OIDC routes (Authorization Code Flow with PKCE)
+	$group->get('/oidc/login', '\Grocy\Controllers\OidcController:StartLogin')->setName('oidc-login');
+	$group->get('/oidc/callback', '\Grocy\Controllers\OidcController:HandleCallback')->setName('oidc-callback');
+
 	// Generic entity interaction
 	$group->get('/userfields', '\Grocy\Controllers\GenericEntityController:UserfieldsList');
 	$group->get('/userfield/{userfieldId}', '\Grocy\Controllers\GenericEntityController:UserfieldEditForm');

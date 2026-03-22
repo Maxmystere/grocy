@@ -10,7 +10,15 @@ class LoginController extends BaseController
 {
 	public function LoginPage(Request $request, Response $response, array $args)
 	{
-		return $this->renderPage($response, 'login');
+		$oidcEnabled = !empty(GROCY_OIDC_AUTHORITY) && !empty(GROCY_OIDC_CLIENT_ID);
+		$oidcOnly = GROCY_AUTH_CLASS === 'Grocy\Middleware\OidcAuthMiddleware';
+		$oidcProviderName = $oidcEnabled ? (parse_url(GROCY_OIDC_AUTHORITY, PHP_URL_HOST) ?: 'OIDC') : 'OIDC';
+
+		return $this->renderPage($response, 'login', [
+			'oidcEnabled'      => $oidcEnabled,
+			'oidcOnly'         => $oidcOnly,
+			'oidcProviderName' => $oidcProviderName,
+		]);
 	}
 
 	public function Logout(Request $request, Response $response, array $args)

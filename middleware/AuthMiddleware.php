@@ -31,7 +31,7 @@ abstract class AuthMiddleware extends BaseMiddleware
 		{
 			return $handler->handle($request);
 		}
-		elseif ($routeName === 'login')
+		elseif ($routeName === 'login' || $routeName === 'oidc-login' || $routeName === 'oidc-callback')
 		{
 			define('GROCY_AUTHENTICATED', false);
 			return $handler->handle($request);
@@ -79,7 +79,7 @@ abstract class AuthMiddleware extends BaseMiddleware
 		}
 	}
 
-	protected static function SetSessionCookie($sessionKey)
+	public static function SetSessionCookie($sessionKey)
 	{
 		// Cookie never expires, session validity is up to SessionService
 		setcookie(SessionService::SESSION_COOKIE_NAME, $sessionKey, PHP_INT_SIZE == 4 ? PHP_INT_MAX : PHP_INT_MAX >> 32);

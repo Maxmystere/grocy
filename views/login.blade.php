@@ -9,6 +9,22 @@
 
 		<hr class="my-2">
 
+		@if($oidcEnabled)
+		<div class="form-group text-center">
+			<a href="{{ $U('/oidc/login') }}"
+				class="btn btn-primary btn-block">
+				<i class="fa-solid fa-right-to-bracket"></i>
+				{{ $__t('Login with %s', $oidcProviderName) }}
+			</a>
+		</div>
+
+		@if($oidcOnly)
+		@else
+		<hr class="my-2">
+		@endif
+		@endif
+
+		@if(!$oidcOnly)
 		<form method="post"
 			action="{{ $U('/login') }}"
 			id="login-form"
@@ -55,6 +71,7 @@
 				class="btn btn-success">{{ $__t('OK') }}</button>
 
 		</form>
+		@endif
 	</div>
 </div>
 @stop
