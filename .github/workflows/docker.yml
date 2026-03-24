@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - master
+      # Allow CI to run on automated copilot/* feature branches so images can be
+      # tested before a PR is merged.  Remove this line if registry storage is a
+      # concern; builds/tests still run for every pull_request below.
       - "copilot/**"
     tags:
       - "v*.*.*"
