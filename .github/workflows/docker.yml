@@ -1,0 +1,141 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "copilot/**"
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository is e.g. "Maxmystere/grocy"; metadata-action lowercases it automatically
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-test-push:
+    name: Build › Smoke-test › Push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # required to push to ghcr.io
+
+    steps:
+      # ── 1. Source ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Docker infra ────────────────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── 3. Registry metadata (tags + labels) ───────────────────────────────
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Tag branch pushes with the branch name
+            type=ref,event=branch
+            # Tag PR builds with pr-<number>
+            type=ref,event=pr
+            # Tag version releases with semver patterns
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # Always attach a short SHA tag
+            type=sha,prefix=sha-
+            # Publish 'latest' only from the default branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+
+      # ── 4. Build image and load it into the local Docker daemon for testing ─
+      - name: Build Docker image (local)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true          # loads the image into the local Docker daemon
+          tags: grocy:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── 5. Smoke test ──────────────────────────────────────────────────────
+      - name: Run container smoke tests
+        run: |
+          # Start the container in demo mode (auth disabled, uses default user)
+          docker run -d \
+            --name grocy-smoke-test \
+            -p 8080:80 \
+            -e GROCY_MODE=demo \
+            grocy:ci-test
+
+          echo "Waiting for Grocy to become ready..."
+          # Poll /login; first request returns 302 (hash-init redirect), second returns 200.
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login || echo "000")
+            echo "  Attempt $i/30: /login → HTTP $STATUS"
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Grocy is ready."
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: timed out waiting for Grocy to become ready."
+              docker logs grocy-smoke-test
+              exit 1
+            fi
+            sleep 3
+          done
+
+          # ── Assertions ────────────────────────────────────────────────────
+
+          # 1. Login page returns HTTP 200
+          LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login)
+          echo "Login page: HTTP $LOGIN_STATUS"
+          if [ "$LOGIN_STATUS" -ne 200 ]; then
+            echo "FAIL: expected 200 from /login, got $LOGIN_STATUS"
+            docker logs grocy-smoke-test
+            exit 1
+          fi
+
+          # 2. Trigger database migration by following the root redirect chain
+          curl -sL --max-redirs 5 http://localhost:8080/ -o /dev/null
+          sleep 2
+
+          # 3. API system-info endpoint returns HTTP 200 (auth bypassed in demo mode)
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/system/info)
+          echo "API system/info: HTTP $API_STATUS"
+          if [ "$API_STATUS" -ne 200 ]; then
+            echo "FAIL: expected 200 from /api/system/info, got $API_STATUS"
+            docker logs grocy-smoke-test
+            exit 1
+          fi
+
+          echo "All smoke tests passed!"
+          docker stop grocy-smoke-test
+
+      # ── 6. Authenticate to ghcr.io (skip on PRs to avoid token exposure) ──
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 7. Build and push to ghcr.io (using the GHA layer cache) ──────────
+      - name: Build and push Docker image to registry
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
