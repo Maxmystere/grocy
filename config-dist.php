@@ -81,9 +81,16 @@ Setting('ENTRY_PAGE', 'stock');
 // places where user context is needed will then use the default (first existing) user
 Setting('DISABLE_AUTH', false);
 
-// Either "Grocy\Middleware\DefaultAuthMiddleware", "Grocy\Middleware\ReverseProxyAuthMiddleware"
-// or any class that implements Grocy\Middleware\AuthMiddleware
+// Either "Grocy\Middleware\DefaultAuthMiddleware", "Grocy\Middleware\ReverseProxyAuthMiddleware",
+// "Grocy\Middleware\OidcAuthMiddleware" or any class that implements Grocy\Middleware\AuthMiddleware
 Setting('AUTH_CLASS', 'Grocy\Middleware\DefaultAuthMiddleware');
+
+// Options when using OidcAuthMiddleware
+Setting('OIDC_AUTHORITY', ''); // The base URL of the OIDC identity provider, e.g. "https://accounts.example.com"
+Setting('OIDC_CLIENT_ID', ''); // The client ID registered with the OIDC provider
+Setting('OIDC_CLIENT_SECRET', ''); // The client secret (leave empty for public clients using PKCE only)
+Setting('OIDC_SCOPE', 'openid profile email'); // Space-separated list of requested OIDC scopes
+Setting('OIDC_USERNAME_CLAIM', 'preferred_username'); // The JWT claim to use as the grocy username (e.g. "preferred_username", "email", "sub")
 
 // Options when using ReverseProxyAuthMiddleware
 Setting('REVERSE_PROXY_AUTH_HEADER', 'REMOTE_USER'); // The name of the HTTP header which your reverse proxy uses to pass the username (on successful authentication)
